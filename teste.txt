@@ -1,0 +1,603 @@
+import { useState, useEffect, useRef } from "react";
+
+// ─── Paleta & Tokens ──────────────────────────────────────────────────────────
+const C = {
+  black: "#000000",
+  orange: "#FF8C00",
+  orangeDim: "#CC7000",
+  orangeGlow: "rgba(255,140,0,0.18)",
+  white: "#FFFFFF",
+  gray1: "#111111",
+  gray2: "#1A1A1A",
+  gray3: "#2A2A2A",
+  gray4: "#3A3A3A",
+  textSub: "#888888",
+  textMid: "#BBBBBB",
+};
+
+// ─── Estilos globais ──────────────────────────────────────────────────────────
+const GlobalStyle = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; background: #000; display: flex; justify-content: center; align-items: center; font-family: 'DM Sans', sans-serif; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #111; } ::-webkit-scrollbar-thumb { background: #FF8C00; border-radius: 2px; }
+    button { cursor: pointer; border: none; outline: none; background: none; font-family: inherit; }
+    input, select { font-family: inherit; }
+
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse  { 0%,100% { box-shadow: 0 0 0 0 rgba(255,140,0,0.5); } 50% { box-shadow: 0 0 0 12px rgba(255,140,0,0); } }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes shimmer{ 0%{ background-position: -200% 0; } 100%{ background-position: 200% 0; } }
+    @keyframes slideIn{ from{ opacity:0; transform:translateY(40px); } to{ opacity:1; transform:translateY(0); } }
+    @keyframes zoomIn { from{ opacity:0; transform:scale(0.9); } to{ opacity:1; transform:scale(1); } }
+    @keyframes barFill{ from{width:0} to{width:var(--w)} }
+
+    .fadeUp  { animation: fadeUp 0.6s ease both; }
+    .fadeUp1 { animation: fadeUp 0.6s 0.1s ease both; }
+    .fadeUp2 { animation: fadeUp 0.6s 0.2s ease both; }
+    .fadeUp3 { animation: fadeUp 0.6s 0.3s ease both; }
+    .fadeUp4 { animation: fadeUp 0.6s 0.4s ease both; }
+    .fadeUp5 { animation: fadeUp 0.6s 0.5s ease both; }
+
+    .card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+    .card-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(255,140,0,0.15); }
+
+    .btn-primary { transition: background 0.2s, transform 0.1s, box-shadow 0.2s; }
+    .btn-primary:hover { background: #CC7000 !important; box-shadow: 0 0 24px rgba(255,140,0,0.4); }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-outline { transition: background 0.2s, border-color 0.2s; }
+    .btn-outline:hover { background: rgba(255,140,0,0.1) !important; }
+
+    .opt-btn { transition: all 0.18s; }
+    .opt-btn:hover { border-color: #FF8C00 !important; background: rgba(255,140,0,0.08) !important; }
+
+    .modal-backdrop { animation: zoomIn 0.25s ease both; }
+  `}</style>
+);
+
+// ─── Ícones SVG inline ────────────────────────────────────────────────────────
+const Icon = ({ name, size = 20, color = C.white, strokeWidth = 2 }) => {
+  const props = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" };
+  const icons = {
+    dumbbell:    <svg {...props}><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 9.5h18v5H3z"/><rect x="1" y="8" width="2" height="8" rx="1"/><rect x="21" y="8" width="2" height="8" rx="1"/></svg>,
+    zap:         <svg {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+    target:      <svg {...props}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+    activity:    <svg {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+    chevronRight:<svg {...props}><polyline points="9 18 15 12 9 6"/></svg>,
+    chevronLeft: <svg {...props}><polyline points="15 18 9 12 15 6"/></svg>,
+    play:        <svg {...props}><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+    x:           <svg {...props}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+    check:       <svg {...props}><polyline points="20 6 9 17 4 12"/></svg>,
+    star:        <svg {...props}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+    flame:       <svg {...props}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>,
+    refresh:     <svg {...props}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
+    user:        <svg {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    info:        <svg {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+    arrowRight:  <svg {...props}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+    clock:       <svg {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+    repeat:      <svg {...props}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
+    body:        <svg {...props}><circle cx="12" cy="5" r="2"/><path d="M10 9h4l1 5-3 2v5h-2v-5l-3-2z"/><path d="M7 9l-2 5"/><path d="M17 9l2 5"/></svg>,
+  };
+  return icons[name] || <svg {...props}/>;
+};
+
+// ─── Dados de treino por perfil ───────────────────────────────────────────────
+const TREINOS_DB = {
+  Hipertrofia: {
+    Iniciante: [
+      { id:1, nome:"Supino Reto com Halteres",       series:3, reps:"10-12", grupo:"Peitoral",    tutorial:["Deite no banco horizontal.","Segure os halteres na altura do peito.","Empurre verticalmente até os braços extenderem.","Desça lentamente em 3 segundos.","Mantenha os pés firmes no chão."] },
+      { id:2, nome:"Agachamento Livre",               series:3, reps:"12",    grupo:"Quadríceps",  tutorial:["Fique em pé, pés na largura dos ombros.","Desça como se fosse sentar numa cadeira.","Joelhos acompanham a ponta dos pés.","Volte empurrando o chão.","Mantenha o tronco ereto."] },
+      { id:3, nome:"Remada Curvada com Halteres",     series:3, reps:"10-12", grupo:"Costas",      tutorial:["Incline o tronco 45°.","Segure os halteres com braços estendidos.","Puxe em direção ao quadril.","Aperte as escápulas no topo.","Desça com controle."] },
+      { id:4, nome:"Desenvolvimento Militar",         series:3, reps:"10",    grupo:"Ombros",      tutorial:["Sentado ou em pé, halteres na altura do ombro.","Empurre acima da cabeça.","Desça lentamente.","Não arqueie a lombar."] },
+      { id:5, nome:"Rosca Direta com Halteres",       series:3, reps:"12",    grupo:"Bíceps",      tutorial:["Em pé, cotovelos fixos ao corpo.","Flex ione alternando os braços.","Gire o punho na subida.","Desça completamente."] },
+      { id:6, nome:"Tríceps Testa com Halteres",      series:3, reps:"12",    grupo:"Tríceps",     tutorial:["Deitado no banco.","Halteres acima do rosto.","Dobra apenas os cotovelos.","Evite abrir os cotovelos."] },
+    ],
+    Intermediário: [
+      { id:1, nome:"Supino Inclinado com Barra",      series:4, reps:"8-10",  grupo:"Peitoral",    tutorial:["Banco a 30-45°.","Pegada um pouco mais larga que os ombros.","Desça a barra ao peito alto.","Exploda na subida.","Cuidado com a lombar."] },
+      { id:2, nome:"Leg Press 45°",                   series:4, reps:"10-15", grupo:"Quadríceps",  tutorial:["Pés centralizados na plataforma.","Desça até 90° de joelho.","Empurre sem travar os joelhos.","Controle a descida."] },
+      { id:3, nome:"Barra Fixa Pronada",               series:4, reps:"6-10",  grupo:"Costas",      tutorial:["Pegada pronada, largura dos ombros.","Puxe o peito à barra.","Cotovel apontam para baixo.","Desça com controle."] },
+      { id:4, nome:"Arnold Press",                    series:4, reps:"10",    grupo:"Ombros",      tutorial:["Inicie com palmas para dentro.","Gire enquanto empurra.","Amplitude máxima.","Descida controlada."] },
+      { id:5, nome:"Rosca Scott com Halteres",        series:3, reps:"10-12", grupo:"Bíceps",      tutorial:["Apoie o tríceps no suporte.","Curle sem levantar o braço.","Controle total na descida."] },
+      { id:6, nome:"Mergulho em Paralelas",           series:3, reps:"8-12",  grupo:"Tríceps",     tutorial:["Cotovelos apontados para trás.","Desça até 90°.","Empurre explosivamente.","Não baia a cabeça."] },
+    ],
+    Avançado: [
+      { id:1, nome:"Supino Reto com Barra",           series:5, reps:"5-8",   grupo:"Peitoral",    tutorial:["Posição de arco controlado.","Pegada pouco acima dos ombros.","Desça tocando o peito.","Explosão máxima.","Utilize cinturão se necessário."] },
+      { id:2, nome:"Agachamento com Barra (High Bar)", series:5, reps:"5-8",   grupo:"Quadríceps",  tutorial:["Barra no trapézio.","Profundidade abaixo de 90°.","Joelhos rastreiam os pés.","Tempo sob tensão elevado."] },
+      { id:3, nome:"Terra Convencional",               series:4, reps:"5-6",   grupo:"Posterior",   tutorial:["Pés na largura do quadril.","Barra sobre o metatarso.","Quadril atrás, lombar neutra.","Empurre o chão na subida.","Respire fundo antes de cada rep."] },
+      { id:4, nome:"Desenvolvimento com Barra",       series:4, reps:"6-8",   grupo:"Ombros",      tutorial:["Em pé, barra no rack.","Pegada na largura dos ombros.","Empurre verticalmente.","Ative o core durante todo o movimento."] },
+      { id:5, nome:"Rosca 21s com Barra W",           series:3, reps:"21",    grupo:"Bíceps",      tutorial:["7 reps metade inferior.","7 reps metade superior.","7 reps amplitude total.","Sem pausa entre as partes."] },
+      { id:6, nome:"Crânio Francês com EZ",           series:4, reps:"8-10",  grupo:"Tríceps",     tutorial:["Deitado, barra sobre a testa.","Dobra apenas os cotovelos.","Cotovelos ligeiramente para frente.","Controle total."] },
+    ],
+  },
+  "Perda de Peso": {
+    Iniciante: [
+      { id:1, nome:"Burpee Modificado",               series:3, reps:"10",    grupo:"Full Body",   tutorial:["Agache e apoie as mãos.","Recue um pé por vez.","Faça uma flexão.","Avance e levante.","Opcional: pulo no final."] },
+      { id:2, nome:"Mountain Climber",                series:3, reps:"30s",   grupo:"Core",        tutorial:["Posição de prancha.","Traga joelhos alternados ao peito.","Mantenha quadril estável.","Ritmo moderado a início."] },
+      { id:3, nome:"Agachamento com Salto",           series:3, reps:"12",    grupo:"Quadríceps",  tutorial:["Agache como de costume.","Salte explosivamente.","Aterrisage suavemente.","Absorva o impacto nos joelhos."] },
+      { id:4, nome:"Polichinelo (Jumping Jack)",      series:3, reps:"40",    grupo:"Cardio",      tutorial:["Pés juntos, braços ao lado.","Salte abrindo pernas e braços.","Retorne à posição inicial.","Mantenha ritmo constante."] },
+      { id:5, nome:"Prancha Abdominal",               series:3, reps:"30s",   grupo:"Core",        tutorial:["Apoie antebraços e pontas dos pés.","Corpo reto como tábua.","Não levante o quadril.","Respire normalmente."] },
+      { id:6, nome:"Skipping (Corrida no Lugar)",     series:3, reps:"45s",   grupo:"Cardio",      tutorial:["Levante joelhos na altura do quadril.","Braços em movimento.","Pouso leve nas pontas dos pés.","Aumente o ritmo gradualmente."] },
+    ],
+    Intermediário: [
+      { id:1, nome:"Circuito HIIT (4 exercícios)",    series:4, reps:"20s/10s",grupo:"Full Body",  tutorial:["20s de trabalho / 10s descanso.","Sprint no lugar > Burpee > Agach. Salto > Prancha.","Não pare entre os exercícios.","Hidrate-se entre circuitos."] },
+      { id:2, nome:"Box Jump",                        series:4, reps:"10",    grupo:"Explosão",    tutorial:["Caixa de 40-60cm.","Agache e salte com os dois pés.","Pouse suavemente.","Desça com controle (não salte)."] },
+      { id:3, nome:"Kettlebell Swing",                series:4, reps:"15",    grupo:"Posterior",   tutorial:["Pés na largura dos ombros.","Quadril empurra para frente.","Kettlebell sobe à altura dos ombros.","Descida controlada."] },
+      { id:4, nome:"Corrida Estacionária Intensa",    series:5, reps:"60s",   grupo:"Cardio",      tutorial:["Máxima velocidade.","Joelhos altos.","Descanso de 30s entre rounds.","Monitore a frequência cardíaca."] },
+      { id:5, nome:"Abdominal Bicicleta",             series:3, reps:"20",    grupo:"Core",        tutorial:["Deitado, mãos atrás da cabeça.","Cotovelo ao joelho oposto.","Estenda a perna alternando.","Não puxe o pescoço."] },
+    ],
+    Avançado: [
+      { id:1, nome:"Tabata Completo (8 rounds)",      series:8, reps:"20s/10s",grupo:"Full Body",  tutorial:["20s de esforço máximo.","10s de descanso.","Burpees, Sprints ou Jumping Squats.","Troque exercício a cada 2 rounds.","Total: 4 minutos por exercício."] },
+      { id:2, nome:"Deadlift Romeno + Sprint",        series:4, reps:"10+20m", grupo:"Posterior",  tutorial:["Execute 10 reps de DL romeno.","Imediatamente sprint de 20 metros.","Retorne e repita.","Intensidade altíssima."] },
+      { id:3, nome:"Muscle-Up (Assistido)",           series:3, reps:"5-8",   grupo:"Full Body",   tutorial:["Puxada explosiva acima da barra.","Transicione os cotovelos.","Empurre para cima (mergulho).","Descida controlada."] },
+      { id:4, nome:"Pistol Squat",                    series:3, reps:"8",     grupo:"Quadríceps",  tutorial:["Em pé, um pé elevado.","Desça em uma perna só.","Coxa paralela ao chão.","Mantenha equilíbrio com o core."] },
+      { id:5, nome:"Battle Rope Waves",               series:5, reps:"30s",   grupo:"Full Body",   tutorial:["Ondas alternadas ou simultâneas.","Joelhos levemente dobrados.","Core ativado.","Ritmo máximo sustentado."] },
+    ],
+  },
+  Flexibilidade: {
+    Iniciante: [
+      { id:1, nome:"Alongamento Isquiotibial em Pé", series:3, reps:"30s",   grupo:"Posterior",   tutorial:["Em pé, incline o tronco à frente.","Mantenha pernas quase estendidas.","Sinta a tensão na parte posterior.","Respire profundamente.","Não force além do conforto."] },
+      { id:2, nome:"Mobilidade de Quadril (Círculos)",series:3, reps:"10 cada",grupo:"Quadril",   tutorial:["Em pé, mãos nos quadris.","Gire o quadril em círculos amplos.","5 para cada lado.","Movimento suave e contínuo."] },
+      { id:3, nome:"Gato e Vaca (Cat-Cow)",           series:3, reps:"10",    grupo:"Coluna",      tutorial:["Em quatro apoios.","Inspire: arqueie a coluna (vaca).","Expire: arredonde a coluna (gato).","Sincronize com a respiração."] },
+      { id:4, nome:"Abertura de Perna Lateral",       series:3, reps:"45s",   grupo:"Adutores",    tutorial:["Sentado no chão, pernas abertas.","Incline o tronco para frente.","Mantenha as costas retas.","Progressão gradual a cada sessão."] },
+      { id:5, nome:"Torção Espinal Deitada",          series:3, reps:"30s",   grupo:"Coluna",      tutorial:["Deitado de costas.","Joelho ao peito e role para o lado.","Ombros no chão.","Respire e relaxe a cada expiração."] },
+      { id:6, nome:"Postura da Criança (Child's Pose)",series:3, reps:"60s",  grupo:"Lombar",      tutorial:["Ajoelhado, sente nos calcanhares.","Estique os braços à frente.","Testa no chão.","Relaxe completamente por 60s."] },
+    ],
+    Intermediário: [
+      { id:1, nome:"Pigeon Pose (Pombo)",             series:3, reps:"60s",   grupo:"Quadril",     tutorial:["Da prancha, avance o joelho entre as mãos.","Perna traseira estendida.","Incline o tronco para frente.","Sinta profundamente o glúteo."] },
+      { id:2, nome:"Fenda Dinâmica com Rotação",      series:3, reps:"12",    grupo:"Quadril",     tutorial:["Fenda frontal profunda.","Gire o tronco para o lado da perna da frente.","Braço estendido ao teto.","Alterne os lados."] },
+      { id:3, nome:"Flexão de Ombro Invertida",       series:3, reps:"30s",   grupo:"Ombros",      tutorial:["Entrelace as mãos atrás das costas.","Levante os braços mantendo-os retos.","Incline o tronco à frente.","Sinta a abertura no peito."] },
+      { id:4, nome:"Scorpion (Mobilidade Torácica)",  series:3, reps:"10",    grupo:"Coluna",      tutorial:["Deitado de barriga para baixo.","Eleve um pé ao lado oposto.","Rotação máxima da coluna.","Mantenha a posição por 3s."] },
+      { id:5, nome:"Yoga: Downward Dog",              series:3, reps:"45s",   grupo:"Full Body",   tutorial:["Posição de prancha.","Eleve o quadril ao máximo.","Calcanhares em direção ao chão.","Cabeça entre os braços.","Respire profundamente."] },
+    ],
+    Avançado: [
+      { id:1, nome:"Split (Espagat) Frontal",         series:3, reps:"90s",   grupo:"Quadril",     tutorial:["Progressão gradual de semanas.","Use blocos de yoga para apoio.","Cadeira anterior: flexores do quadril.","Cadeira posterior: isquiotibiais.","Nunca force abruptamente."] },
+      { id:2, nome:"Postura do Arco (Bow Pose)",      series:3, reps:"45s",   grupo:"Coluna",      tutorial:["Deitado de bruços.","Segure os tornozelos.","Eleve peito e pernas simultaneamente.","Respire profundamente no topo."] },
+      { id:3, nome:"Handstand Wall Hold",             series:3, reps:"30s",   grupo:"Ombros",      tutorial:["Com apoio da parede.","Braços retos, core ativado.","Olhar para o chão entre as mãos.","Progrida para equilíbrio livre."] },
+      { id:4, nome:"Dragon Pose (Yin Yoga)",          series:2, reps:"3min",   grupo:"Quadril",     tutorial:["Fenda baixa extrema.","Joelho traseiro no chão.","Afunde o quadril gradualmente.","3 minutos cada lado.","Respiração yin lenta."] },
+      { id:5, nome:"Camel Pose (Camelo)",             series:3, reps:"30s",   grupo:"Coluna",      tutorial:["Ajoelhado, mãos nos calcanhares.","Empurre o quadril à frente.","Arque a coluna completamente.","Cabeça para trás com cuidado.","Saída lenta e controlada."] },
+    ],
+  },
+};
+
+// ─── Storage simulado (localStorage) ─────────────────────────────────────────
+const Storage = {
+  get: (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  remove: (k) => { try { localStorage.removeItem(k); } catch {} },
+};
+
+// ─── Função gerarTreino() ──────────────────────────────────────────────────────
+const gerarTreino = async (objetivo, nivel, frequencia) => {
+  await new Promise(r => setTimeout(r, 2200)); // simula latência de IA
+  const exercicios = TREINOS_DB[objetivo]?.[nivel] || TREINOS_DB["Hipertrofia"]["Iniciante"];
+  return {
+    objetivo,
+    nivel,
+    frequencia,
+    geradoEm: new Date().toLocaleDateString("pt-BR"),
+    totalExercicios: exercicios.length,
+    duracaoEstimada: `${exercicios.length * 8}-${exercicios.length * 12} min`,
+    exercicios,
+  };
+};
+
+// ─── Componente: Tag de grupo muscular ────────────────────────────────────────
+const GrupoTag = ({ grupo }) => (
+  <span style={{ background: C.orangeGlow, color: C.orange, border: `1px solid ${C.orange}40`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase" }}>
+    {grupo}
+  </span>
+);
+
+// ─── Componente: Modal de Tutorial ────────────────────────────────────────────
+const TutorialModal = ({ exercicio, onClose }) => {
+  if (!exercicio) return null;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:16 }} onClick={onClose}>
+      <div className="modal-backdrop" style={{ background: C.gray1, border:`1px solid ${C.gray3}`, borderRadius:24, padding:28, maxWidth:420, width:"100%", maxHeight:"85vh", overflowY:"auto" }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
+          <div>
+            <GrupoTag grupo={exercicio.grupo} />
+            <h2 style={{ color:C.white, fontSize:20, fontWeight:700, marginTop:10, lineHeight:1.3 }}>{exercicio.nome}</h2>
+            <p style={{ color:C.textSub, fontSize:13, marginTop:4 }}>{exercicio.series} séries · {exercicio.reps} reps</p>
+          </div>
+          <button onClick={onClose} style={{ background:C.gray3, borderRadius:"50%", width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icon name="x" size={16} color={C.textSub} />
+          </button>
+        </div>
+
+        {/* Simulação de vídeo */}
+        <div style={{ background: "linear-gradient(135deg, #111 0%, #1A1A1A 100%)", borderRadius:16, height:160, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", border:`1px solid ${C.gray3}`, marginBottom:20, position:"relative", overflow:"hidden" }}>
+          <div style={{ position:"absolute", inset:0, background:`radial-gradient(circle at center, ${C.orangeGlow} 0%, transparent 70%)` }} />
+          <div style={{ width:56, height:56, borderRadius:"50%", background:C.orange, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 0 32px ${C.orangeGlow}`, cursor:"pointer" }}>
+            <Icon name="play" size={22} color="#000" />
+          </div>
+          <p style={{ color:C.textSub, fontSize:12, marginTop:12, zIndex:1 }}>Tutorial em vídeo • academIA</p>
+        </div>
+
+        {/* Passo a passo */}
+        <div>
+          <p style={{ color:C.orange, fontSize:13, fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:14 }}>
+            Passo a Passo Técnico
+          </p>
+          {exercicio.tutorial.map((passo, i) => (
+            <div key={i} style={{ display:"flex", gap:12, marginBottom:14, alignItems:"flex-start" }}>
+              <div style={{ minWidth:28, height:28, borderRadius:"50%", background: i === 0 ? C.orange : C.gray3, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color: i === 0 ? "#000" : C.textSub, marginTop:1 }}>
+                {i + 1}
+              </div>
+              <p style={{ color:C.textMid, fontSize:14, lineHeight:1.6, flex:1 }}>{passo}</p>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn-primary" onClick={onClose} style={{ width:"100%", background:C.orange, color:"#000", borderRadius:14, padding:"14px 0", fontWeight:700, fontSize:15, marginTop:8 }}>
+          Entendido!
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Componente: Card de Exercício ─────────────────────────────────────────────
+const ExercicioCard = ({ exercicio, index, onVerTutorial }) => (
+  <div className="card-hover fadeUp" style={{ animationDelay:`${index * 0.07}s`, background: C.gray1, border:`1px solid ${C.gray3}`, borderRadius:20, padding:20, marginBottom:14 }}>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+      <GrupoTag grupo={exercicio.grupo} />
+      <span style={{ color:C.textSub, fontSize:12 }}>#{String(index + 1).padStart(2, "0")}</span>
+    </div>
+
+    <h3 style={{ color:C.white, fontSize:17, fontWeight:700, marginBottom:8, lineHeight:1.3 }}>{exercicio.nome}</h3>
+
+    <div style={{ display:"flex", gap:20, marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <Icon name="repeat" size={14} color={C.orange} />
+        <span style={{ color:C.textMid, fontSize:13 }}>{exercicio.series} séries</span>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <Icon name="zap" size={14} color={C.orange} />
+        <span style={{ color:C.textMid, fontSize:13 }}>{exercicio.reps} reps</span>
+      </div>
+    </div>
+
+    {/* Barra de intensidade */}
+    <div style={{ background:C.gray3, borderRadius:4, height:3, marginBottom:16, overflow:"hidden" }}>
+      <div style={{ height:"100%", background:`linear-gradient(90deg, ${C.orange}, #FFB347)`, width:`${60 + (exercicio.id * 8) % 40}%`, borderRadius:4, transition:"width 1s ease" }} />
+    </div>
+
+    <button className="btn-outline" onClick={() => onVerTutorial(exercicio)} style={{ width:"100%", border:`1px solid ${C.gray4}`, borderRadius:12, padding:"11px 0", color:C.white, fontSize:14, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+      <Icon name="play" size={15} color={C.orange} />
+      Ver Tutorial
+    </button>
+  </div>
+);
+
+// ─── Componente: Header do Dashboard ──────────────────────────────────────────
+const DashboardHeader = ({ treino, onReset }) => (
+  <div style={{ padding:"24px 20px 0" }}>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:C.orangeGlow, display:"flex", alignItems:"center", justifyContent:"center", border:`1px solid ${C.orange}40` }}>
+          <Icon name="dumbbell" size={18} color={C.orange} />
+        </div>
+        <span style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:26, letterSpacing:2, color:C.white }}>
+          academ<span style={{ color:C.orange }}>IA</span>
+        </span>
+      </div>
+      <button className="btn-outline" onClick={onReset} style={{ border:`1px solid ${C.gray4}`, borderRadius:10, padding:"8px 14px", color:C.textSub, fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+        <Icon name="refresh" size={13} color={C.textSub} />
+        Reiniciar
+      </button>
+    </div>
+
+    <div style={{ marginTop:20, background:"linear-gradient(135deg, #111 0%, #1A1A1A 100%)", border:`1px solid ${C.gray3}`, borderRadius:20, padding:20, marginBottom:4 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+        <div>
+          <p style={{ color:C.textSub, fontSize:12, letterSpacing:1, textTransform:"uppercase" }}>Seu treino personalizado</p>
+          <h2 style={{ color:C.white, fontSize:22, fontWeight:800, marginTop:4 }}>{treino.objetivo}</h2>
+          <p style={{ color:C.textSub, fontSize:13, marginTop:2 }}>Nível {treino.nivel} · {treino.frequencia}x/semana</p>
+        </div>
+        <div style={{ textAlign:"right" }}>
+          <p style={{ color:C.orange, fontSize:26, fontWeight:800 }}>{treino.totalExercicios}</p>
+          <p style={{ color:C.textSub, fontSize:12 }}>exercícios</p>
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:12 }}>
+        {[
+          { icon:"clock", label:"Duração", value:treino.duracaoEstimada },
+          { icon:"flame", label:"Gerado em", value:treino.geradoEm },
+        ].map(item => (
+          <div key={item.label} style={{ flex:1, background:C.gray3, borderRadius:12, padding:"10px 14px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+              <Icon name={item.icon} size={13} color={C.orange} />
+              <span style={{ color:C.textSub, fontSize:11, textTransform:"uppercase", letterSpacing:0.5 }}>{item.label}</span>
+            </div>
+            <p style={{ color:C.white, fontSize:13, fontWeight:600 }}>{item.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Tela 1: Boas-Vindas ──────────────────────────────────────────────────────
+const TelaBoasVindas = ({ onComecar }) => (
+  <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.black, position:"relative", overflow:"hidden" }}>
+    {/* Fundo com gradiente */}
+    <div style={{ position:"absolute", top:-100, right:-100, width:350, height:350, borderRadius:"50%", background:`radial-gradient(circle, ${C.orangeGlow} 0%, transparent 70%)`, pointerEvents:"none" }} />
+    <div style={{ position:"absolute", bottom:-80, left:-80, width:250, height:250, borderRadius:"50%", background:`radial-gradient(circle, rgba(255,140,0,0.06) 0%, transparent 70%)`, pointerEvents:"none" }} />
+
+    {/* Grid decorativo */}
+    <div style={{ position:"absolute", inset:0, backgroundImage:`linear-gradient(${C.gray2} 1px, transparent 1px), linear-gradient(90deg, ${C.gray2} 1px, transparent 1px)`, backgroundSize:"40px 40px", opacity:0.3, pointerEvents:"none" }} />
+
+    <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"32px 24px", position:"relative" }}>
+      {/* Badge */}
+      <div className="fadeUp" style={{ display:"inline-flex", alignItems:"center", gap:8, background:C.orangeGlow, border:`1px solid ${C.orange}50`, borderRadius:20, padding:"6px 14px", width:"fit-content", marginBottom:28 }}>
+        <Icon name="zap" size={13} color={C.orange} />
+        <span style={{ color:C.orange, fontSize:12, fontWeight:600, letterSpacing:0.5 }}>IA POWERED FITNESS</span>
+      </div>
+
+      {/* Título principal */}
+      <div className="fadeUp1">
+        <h1 style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:68, letterSpacing:3, lineHeight:0.95, color:C.white, marginBottom:8 }}>
+          BEM-VINDO<br/>AO{" "}
+          <span style={{ color:C.orange, textShadow:`0 0 40px ${C.orange}60` }}>ACADEM</span>
+          <span style={{ color:C.white }}>IA</span>
+        </h1>
+      </div>
+
+      <p className="fadeUp2" style={{ color:C.textMid, fontSize:15, lineHeight:1.7, marginTop:16, marginBottom:40, maxWidth:320 }}>
+        Seu personal trainer inteligente. Treinos personalizados gerados por IA, adaptados ao seu objetivo e nível.
+      </p>
+
+      {/* Cards de features */}
+      <div className="fadeUp3" style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:40 }}>
+        {[
+          { icon:"target", text:"Treinos adaptados ao seu objetivo" },
+          { icon:"activity", text:"Progressão inteligente por nível" },
+          { icon:"star", text:"Tutoriais técnicos em cada exercício" },
+        ].map(({ icon, text }) => (
+          <div key={text} style={{ display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:C.gray2, border:`1px solid ${C.gray3}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <Icon name={icon} size={16} color={C.orange} />
+            </div>
+            <span style={{ color:C.textMid, fontSize:14 }}>{text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Botão CTA */}
+      <button className="btn-primary fadeUp4" onClick={onComecar} style={{ background:C.orange, color:"#000", borderRadius:18, padding:"18px 0", fontWeight:800, fontSize:17, display:"flex", alignItems:"center", justifyContent:"center", gap:10, animation:"pulse 2.5s infinite, fadeUp 0.6s 0.4s ease both" }}>
+        Começar Agora
+        <Icon name="arrowRight" size={18} color="#000" />
+      </button>
+
+      <p className="fadeUp5" style={{ color:C.textSub, fontSize:12, textAlign:"center", marginTop:16 }}>
+        Grátis · Sem cadastro · Sem limites
+      </p>
+    </div>
+  </div>
+);
+
+// ─── Tela 2: Questionário em Etapas ───────────────────────────────────────────
+const TelaQuestionario = ({ onConcluir }) => {
+  const [step, setStep] = useState(0);
+  const [objetivo, setObjetivo] = useState(null);
+  const [nivel, setNivel] = useState(null);
+  const [frequencia, setFrequencia] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const steps = [
+    {
+      titulo: "Qual é seu objetivo?",
+      subtitulo: "Vamos personalizar seu treino completo",
+      opcoes: [
+        { label:"Hipertrofia", desc:"Ganho de massa muscular", icon:"dumbbell" },
+        { label:"Perda de Peso", desc:"Queima de gordura e cardio", icon:"flame" },
+        { label:"Flexibilidade", desc:"Mobilidade e alongamento", icon:"activity" },
+      ],
+      valor: objetivo, setValor: setObjetivo,
+    },
+    {
+      titulo: "Qual é seu nível?",
+      subtitulo: "Seja honesto — é para o seu bem!",
+      opcoes: [
+        { label:"Iniciante", desc:"Menos de 6 meses de treino", icon:"star" },
+        { label:"Intermediário", desc:"6 meses a 2 anos", icon:"zap" },
+        { label:"Avançado", desc:"Mais de 2 anos treinando", icon:"target" },
+      ],
+      valor: nivel, setValor: setNivel,
+    },
+    {
+      titulo: "Frequência semanal?",
+      subtitulo: "Quantas vezes por semana você pode treinar?",
+      opcoes: [
+        { label:"2x por semana", desc:"Treino básico e eficiente", icon:"clock" },
+        { label:"3x por semana", desc:"Equilíbrio ideal", icon:"clock" },
+        { label:"4x por semana", desc:"Alta frequência", icon:"clock" },
+        { label:"5x ou mais", desc:"Dedicação máxima", icon:"flame" },
+      ],
+      valor: frequencia, setValor: setFrequencia,
+    },
+  ];
+
+  const atual = steps[step];
+  const progresso = ((step) / steps.length) * 100;
+
+  const handleNext = async () => {
+    if (step < steps.length - 1) {
+      setStep(s => s + 1);
+    } else {
+      setLoading(true);
+      const freq = frequencia?.replace("x por semana","").trim().split(" ")[0] || "3";
+      const treino = await gerarTreino(objetivo, nivel, freq);
+      onConcluir(treino);
+    }
+  };
+
+  const podeAvancar = atual.valor !== null;
+
+  if (loading) {
+    return (
+      <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.black, alignItems:"center", justifyContent:"center", padding:32 }}>
+        <div style={{ width:64, height:64, borderRadius:"50%", border:`3px solid ${C.gray3}`, borderTopColor:C.orange, animation:"spin 0.8s linear infinite", marginBottom:28 }} />
+        <h2 style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:32, color:C.white, letterSpacing:2, marginBottom:10 }}>
+          GERANDO SEU TREINO
+        </h2>
+        <p style={{ color:C.textSub, fontSize:14, textAlign:"center", lineHeight:1.7 }}>
+          Nossa IA está analisando seu perfil<br/>e montando o plano ideal para você...
+        </p>
+        <div style={{ marginTop:32, display:"flex", gap:8 }}>
+          {[0,1,2].map(i => (
+            <div key={i} style={{ width:8, height:8, borderRadius:"50%", background:C.orange, opacity: i === 0 ? 1 : 0.3, animation:`pulse ${1 + i * 0.3}s ease infinite` }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.black }}>
+      {/* Header */}
+      <div style={{ padding:"24px 20px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+          <button onClick={() => step > 0 && setStep(s => s - 1)} style={{ width:36, height:36, borderRadius:10, background: step > 0 ? C.gray2 : "transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            {step > 0 && <Icon name="chevronLeft" size={18} color={C.white} />}
+          </button>
+          <span style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:22, letterSpacing:2, color:C.white }}>
+            academ<span style={{ color:C.orange }}>IA</span>
+          </span>
+          <span style={{ color:C.textSub, fontSize:13 }}>{step + 1}/{steps.length}</span>
+        </div>
+
+        {/* Barra de progresso */}
+        <div style={{ background:C.gray3, borderRadius:4, height:4, marginBottom:32, overflow:"hidden" }}>
+          <div style={{ height:"100%", background:`linear-gradient(90deg, ${C.orange}, #FFB347)`, width:`${((step + 1) / steps.length) * 100}%`, borderRadius:4, transition:"width 0.4s ease" }} />
+        </div>
+
+        <h2 className="fadeUp" style={{ color:C.white, fontSize:26, fontWeight:800, marginBottom:8, key:step }}>{atual.titulo}</h2>
+        <p style={{ color:C.textSub, fontSize:14, marginBottom:28 }}>{atual.subtitulo}</p>
+      </div>
+
+      {/* Opções */}
+      <div style={{ flex:1, overflowY:"auto", padding:"0 20px" }}>
+        {atual.opcoes.map((op, i) => {
+          const selected = atual.valor === op.label;
+          return (
+            <button key={op.label} className="opt-btn fadeUp" style={{ animationDelay:`${i * 0.08}s`, width:"100%", background: selected ? C.orangeGlow : C.gray1, border:`2px solid ${selected ? C.orange : C.gray3}`, borderRadius:18, padding:"18px 20px", display:"flex", alignItems:"center", gap:16, marginBottom:12, textAlign:"left", transition:"all 0.18s" }} onClick={() => atual.setValor(op.label)}>
+              <div style={{ width:44, height:44, borderRadius:14, background: selected ? `${C.orange}30` : C.gray3, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, border: selected ? `1px solid ${C.orange}50` : "none" }}>
+                <Icon name={op.icon} size={20} color={selected ? C.orange : C.textSub} />
+              </div>
+              <div style={{ flex:1 }}>
+                <p style={{ color: selected ? C.white : C.textMid, fontSize:16, fontWeight:700 }}>{op.label}</p>
+                <p style={{ color:C.textSub, fontSize:13, marginTop:2 }}>{op.desc}</p>
+              </div>
+              {selected && (
+                <div style={{ width:24, height:24, borderRadius:"50%", background:C.orange, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <Icon name="check" size={13} color="#000" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Botão avançar */}
+      <div style={{ padding:"16px 20px 28px" }}>
+        <button className="btn-primary" disabled={!podeAvancar} onClick={handleNext} style={{ width:"100%", background: podeAvancar ? C.orange : C.gray3, color: podeAvancar ? "#000" : C.textSub, borderRadius:18, padding:"18px 0", fontWeight:800, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all 0.2s" }}>
+          {step === steps.length - 1 ? "Gerar Meu Treino com IA" : "Continuar"}
+          <Icon name={step === steps.length - 1 ? "zap" : "chevronRight"} size={18} color={podeAvancar ? "#000" : C.textSub} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Tela 3: Dashboard ────────────────────────────────────────────────────────
+const TelaDashboard = ({ treino, onReset }) => {
+  const [modalExercicio, setModalExercicio] = useState(null);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.black, overflow:"hidden" }}>
+      <div style={{ overflowY:"auto", flex:1 }}>
+        <DashboardHeader treino={treino} onReset={onReset} />
+
+        <div style={{ padding:"16px 20px 32px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+            <Icon name="dumbbell" size={16} color={C.orange} />
+            <p style={{ color:C.orange, fontSize:13, fontWeight:600, letterSpacing:1, textTransform:"uppercase" }}>
+              Lista de Exercícios
+            </p>
+          </div>
+
+          {treino.exercicios.map((ex, i) => (
+            <ExercicioCard key={ex.id} exercicio={ex} index={i} onVerTutorial={setModalExercicio} />
+          ))}
+
+          {/* Footer motivacional */}
+          <div style={{ background:C.orangeGlow, border:`1px solid ${C.orange}30`, borderRadius:20, padding:20, textAlign:"center", marginTop:8 }}>
+            <Icon name="flame" size={28} color={C.orange} />
+            <p style={{ color:C.white, fontWeight:800, fontSize:16, marginTop:8 }}>Bora arrasar, {treino.nivel}!</p>
+            <p style={{ color:C.textSub, fontSize:13, marginTop:4 }}>Seu treino está salvo automaticamente.</p>
+          </div>
+        </div>
+      </div>
+
+      {modalExercicio && <TutorialModal exercicio={modalExercicio} onClose={() => setModalExercicio(null)} />}
+    </div>
+  );
+};
+
+// ─── App Principal ────────────────────────────────────────────────────────────
+export default function App() {
+  const [tela, setTela] = useState("boasvindas"); // "boasvindas" | "questionario" | "dashboard"
+  const [treino, setTreino] = useState(null);
+
+  // Carrega treino salvo ao iniciar
+  useEffect(() => {
+    const salvo = Storage.get("academIA_treino");
+    if (salvo) { setTreino(salvo); setTela("dashboard"); }
+  }, []);
+
+  const handleConcluir = (t) => {
+    Storage.set("academIA_treino", t);
+    setTreino(t);
+    setTela("dashboard");
+  };
+
+  const handleReset = () => {
+    Storage.remove("academIA_treino");
+    setTreino(null);
+    setTela("boasvindas");
+  };
+
+  return (
+    <>
+      <GlobalStyle />
+      {/* Moldura de celular */}
+      <div style={{ width:"100%", maxWidth:390, height:"100%", maxHeight:820, background:C.black, borderRadius:40, overflow:"hidden", boxShadow:"0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px #222", position:"relative", display:"flex", flexDirection:"column" }}>
+        {/* Status bar */}
+        <div style={{ height:44, background:C.black, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", flexShrink:0 }}>
+          <span style={{ color:C.white, fontSize:13, fontWeight:600 }}>9:41</span>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <span style={{ color:C.white, fontSize:11 }}>●●●</span>
+            <Icon name="zap" size={14} color={C.white} />
+          </div>
+        </div>
+
+        {/* Conteúdo */}
+        <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+          {tela === "boasvindas"   && <TelaBoasVindas onComecar={() => setTela("questionario")} />}
+          {tela === "questionario" && <TelaQuestionario onConcluir={handleConcluir} />}
+          {tela === "dashboard"    && treino && <TelaDashboard treino={treino} onReset={handleReset} />}
+        </div>
+
+        {/* Home indicator */}
+        <div style={{ height:28, background:C.black, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          <div style={{ width:120, height:4, background:C.gray4, borderRadius:2 }} />
+        </div>
+      </div>
+    </>
+  );
+}
